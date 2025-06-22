@@ -1,0 +1,6 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+- Avoid create large files that contain a lot of codes, instead try to develop with small components and combine them

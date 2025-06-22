@@ -1,169 +1,48 @@
 <template>
 	<div class="ide-container">
-		<!-- 載入畫面 -->
-		<div v-if="isLoading" class="loading-overlay">
-			<div class="loading-content">
-				<div class="loading-spinner" />
-				<h2>Python Web IDE</h2>
-				<p>{{ loadingMessage }}</p>
-			</div>
-		</div>
+		<LoadingOverlay :is-loading="isLoading" :loading-message="loadingMessage" />
 
-		<div class="ide-header">
-			<h1 class="ide-title">Python Web IDE</h1>
-			<div class="ide-actions">
-				<button
-					class="run-button"
-					:disabled="isRunning || isLoading"
-					@click="runCode"
-				>
-					{{ isRunning ? "執行中..." : "執行程式碼" }}
-				</button>
-			</div>
-		</div>
+		<IdeHeader
+			:is-running="isRunning"
+			:is-loading="isLoading"
+			@run-code="runCode"
+		/>
 
 		<div class="ide-body">
-			<!-- 檔案管理區塊 -->
-			<div class="file-explorer">
-				<div class="explorer-header">
-					<h3>檔案管理</h3>
-				</div>
-				<div class="file-list">
-					<div
-						v-for="(file, index) in files"
-						:key="index"
-						class="file-item"
-						:class="{ active: currentFileIndex === index }"
-						@click="selectFile(index)"
-					>
-						<span class="file-icon">📄</span>
-						<input
-							v-if="editingFileIndex === index"
-							v-model="editingFileName"
-							class="file-name-input"
-							@blur="finishRename(index)"
-							@keydown.enter="finishRename(index)"
-							@keydown.esc="cancelRename"
-							@click.stop
-						/>
-						<span v-else class="file-name" @dblclick="renameFile(index)">{{
-							file.name
-						}}</span>
-						<div class="file-actions">
-							<button
-								class="edit-btn"
-								@click.stop="startRename(index)"
-								title="重新命名"
-							>
-								<svg
-									width="14"
-									height="14"
-									viewBox="0 0 24 24"
-									fill="currentColor"
-								>
-									<path
-										d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
-									/>
-								</svg>
-							</button>
-							<button
-								class="delete-btn"
-								@click.stop="deleteFile(index)"
-								title="刪除檔案"
-							>
-								<svg
-									width="14"
-									height="14"
-									viewBox="0 0 24 24"
-									fill="currentColor"
-								>
-									<path
-										d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
-									/>
-								</svg>
-							</button>
-						</div>
-					</div>
-				</div>
-				<div class="explorer-actions">
-					<button class="add-file-btn" @click="addNewFile">+ 新增檔案</button>
-				</div>
-			</div>
+			<FileExplorer
+				:files="files"
+				:current-file-index="currentFileIndex"
+				:editing-file-index="editingFileIndex"
+				:editing-file-name="editingFileName"
+				@select-file="selectFile"
+				@add-new-file="addNewFile"
+				@delete-file="deleteFile"
+				@rename-file="renameFile"
+				@start-rename="startRename"
+				@finish-rename="finishRename"
+				@cancel-rename="cancelRename"
+				@update-editing-file-name="updateEditingFileName"
+			/>
 
-			<!-- 程式碼編輯區塊 -->
-			<div class="code-editor">
-				<div v-if="files.length > 0" class="editor-tabs">
-					<div
-						v-for="(file, index) in files"
-						:key="index"
-						class="tab"
-						:class="{ active: currentFileIndex === index }"
-						@click="selectFile(index)"
-					>
-						<input
-							v-if="editingFileIndex === index"
-							v-model="editingFileName"
-							class="tab-name-input"
-							@blur="finishRename(index)"
-							@keydown.enter="finishRename(index)"
-							@keydown.esc="cancelRename"
-							@click.stop
-						/>
-						<span v-else class="tab-name" @dblclick="renameFile(index)">{{
-							file.name
-						}}</span>
-						<div class="tab-actions">
-							<button
-								class="tab-edit-btn"
-								@click.stop="startRename(index)"
-								title="重新命名"
-							>
-								<svg
-									width="12"
-									height="12"
-									viewBox="0 0 24 24"
-									fill="currentColor"
-								>
-									<path
-										d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
-									/>
-								</svg>
-							</button>
-							<button
-								class="tab-close"
-								@click.stop="deleteFile(index)"
-								title="關閉檔案"
-							>
-								<svg
-									width="12"
-									height="12"
-									viewBox="0 0 24 24"
-									fill="currentColor"
-								>
-									<path
-										d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
-									/>
-								</svg>
-							</button>
-						</div>
-					</div>
-				</div>
-				<div id="monaco-editor" class="monaco-editor-container" />
-			</div>
+			<CodeEditor
+				:files="files"
+				:current-file-index="currentFileIndex"
+				:editing-file-index="editingFileIndex"
+				:editing-file-name="editingFileName"
+				@select-file="selectFile"
+				@delete-file="deleteFile"
+				@rename-file="renameFile"
+				@start-rename="startRename"
+				@finish-rename="finishRename"
+				@cancel-rename="cancelRename"
+				@update-editing-file-name="updateEditingFileName"
+			/>
 
-			<!-- 執行結果區塊 -->
-			<div class="output-panel" :class="{ collapsed: isOutputCollapsed }">
-				<div class="output-header" @click="toggleOutput">
-					<h3>執行結果</h3>
-					<span class="collapse-icon">{{ isOutputCollapsed ? "▲" : "▼" }}</span>
-				</div>
-				<div v-show="!isOutputCollapsed" class="output-content">
-					<pre v-if="output" class="output-text">{{ output }}</pre>
-					<div v-else class="output-placeholder">
-						點擊「執行程式碼」來查看結果
-					</div>
-				</div>
-			</div>
+			<OutputPanel
+				:output="output"
+				:is-output-collapsed="isOutputCollapsed"
+				@toggle-output="toggleOutput"
+			/>
 		</div>
 	</div>
 </template>
@@ -279,6 +158,10 @@ for i in range(3):
 	const cancelRename = () => {
 		editingFileIndex.value = -1;
 		editingFileName.value = "";
+	};
+
+	const updateEditingFileName = (value) => {
+		editingFileName.value = value;
 	};
 
 	// 輸出面板
@@ -414,435 +297,16 @@ sys.stdout = StringIO()
 		font-family: "Consolas", "Monaco", "Courier New", monospace;
 	}
 
-	.ide-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 8px 16px;
-		background: #2d2d30;
-		border-bottom: 1px solid #3e3e42;
-	}
-
-	.ide-title {
-		margin: 0;
-		font-size: 16px;
-		font-weight: 600;
-	}
-
-	.run-button {
-		background: #0e639c;
-		color: white;
-		border: none;
-		padding: 6px 12px;
-		border-radius: 3px;
-		cursor: pointer;
-		font-size: 12px;
-		transition: background 0.2s;
-	}
-
-	.run-button:hover:not(:disabled) {
-		background: #1177bb;
-	}
-
-	.run-button:disabled {
-		background: #666;
-		cursor: not-allowed;
-	}
-
 	.ide-body {
 		flex: 1;
 		display: flex;
 		min-height: 0;
 	}
 
-	/* 檔案管理區塊 */
-	.file-explorer {
-		width: 250px;
-		background: #252526;
-		border-right: 1px solid #3e3e42;
-		display: flex;
-		flex-direction: column;
-	}
-
-	.explorer-header {
-		padding: 8px 12px;
-		background: #2d2d30;
-		border-bottom: 1px solid #3e3e42;
-	}
-
-	.explorer-header h3 {
-		margin: 0;
-		font-size: 12px;
-		font-weight: 600;
-		text-transform: uppercase;
-	}
-
-	.file-list {
-		flex: 1;
-		overflow-y: auto;
-	}
-
-	.file-item {
-		display: flex;
-		align-items: center;
-		padding: 4px 12px;
-		cursor: pointer;
-		transition: background 0.2s;
-		font-size: 13px;
-		position: relative;
-	}
-
-	.file-item:hover {
-		background: #2a2d2e;
-	}
-
-	.file-item.active {
-		background: #37373d;
-	}
-
-	.file-icon {
-		margin-right: 6px;
-		font-size: 12px;
-	}
-
-	.file-name {
-		flex: 1;
-	}
-
-	.file-name:hover {
-		background: rgba(255, 255, 255, 0.1);
-		border-radius: 3px;
-		cursor: pointer;
-	}
-
-	.file-name-input {
-		flex: 1;
-		background: #1e1e1e;
-		border: 1px solid #0e639c;
-		color: #d4d4d4;
-		padding: 2px 4px;
-		border-radius: 3px;
-		font-size: 13px;
-		font-family: inherit;
-		outline: none;
-	}
-
-	.file-name-input:focus {
-		border-color: #1177bb;
-		box-shadow: 0 0 0 1px #1177bb;
-	}
-
-	.edit-btn {
-		background: none;
-		border: none;
-		color: #999;
-		cursor: pointer;
-		padding: 4px;
-		border-radius: 3px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		transition: all 0.2s ease;
-	}
-
-	.edit-btn:hover {
-		color: #fff;
-		background: #0e639c;
-	}
-
-	.delete-btn {
-		background: none;
-		border: none;
-		color: #999;
-		cursor: pointer;
-		padding: 4px;
-		border-radius: 3px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		transition: all 0.2s ease;
-	}
-
-	.delete-btn:hover {
-		color: #fff;
-		background: #e81123;
-	}
-
-	.file-actions {
-		display: flex;
-		align-items: center;
-		gap: 4px;
-		opacity: 0;
-		transition: opacity 0.2s ease;
-	}
-
-	.file-item:hover .file-actions {
-		opacity: 1;
-	}
-
-	.explorer-actions {
-		padding: 8px;
-		border-top: 1px solid #3e3e42;
-	}
-
-	.add-file-btn {
-		width: 100%;
-		background: #0e639c;
-		color: white;
-		border: none;
-		padding: 6px;
-		border-radius: 3px;
-		cursor: pointer;
-		font-size: 12px;
-	}
-
-	.add-file-btn:hover {
-		background: #1177bb;
-	}
-
-	/* 程式碼編輯區塊 */
-	.code-editor {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		min-width: 0;
-	}
-
-	.editor-tabs {
-		display: flex;
-		background: #2d2d30;
-		border-bottom: 1px solid #3e3e42;
-		overflow-x: auto;
-	}
-
-	.tab {
-		display: flex;
-		align-items: center;
-		padding: 8px 12px;
-		background: #2d2d30;
-		border-right: 1px solid #3e3e42;
-		cursor: pointer;
-		font-size: 13px;
-		white-space: nowrap;
-		gap: 6px;
-	}
-
-	.tab.active {
-		background: #1e1e1e;
-	}
-
-	.tab:hover {
-		background: #37373d;
-	}
-
-	.tab-name {
-		flex: 1;
-		padding: 2px 4px;
-		border-radius: 3px;
-		transition: background 0.2s ease;
-	}
-
-	.tab-name:hover {
-		background: rgba(255, 255, 255, 0.1);
-		cursor: pointer;
-	}
-
-	.tab-actions {
-		display: flex;
-		align-items: center;
-		gap: 2px;
-		opacity: 0;
-		transition: opacity 0.2s ease;
-	}
-
-	.tab:hover .tab-actions {
-		opacity: 1;
-	}
-
-	.tab-edit-btn {
-		background: none;
-		border: none;
-		color: #999;
-		cursor: pointer;
-		padding: 3px;
-		border-radius: 3px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		transition: all 0.2s ease;
-	}
-
-	.tab-edit-btn:hover {
-		color: #fff;
-		background: #0e639c;
-	}
-
-	.tab-close {
-		background: none;
-		border: none;
-		color: #999;
-		cursor: pointer;
-		padding: 3px;
-		border-radius: 3px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		transition: all 0.2s ease;
-	}
-
-	.tab-close:hover {
-		color: #fff;
-		background: #e81123;
-	}
-
-	.tab-name-input {
-		flex: 1;
-		background: #1e1e1e;
-		border: 1px solid #0e639c;
-		color: #d4d4d4;
-		padding: 2px 4px;
-		border-radius: 3px;
-		font-size: 13px;
-		font-family: inherit;
-		outline: none;
-	}
-
-	.tab-name-input:focus {
-		border-color: #1177bb;
-		box-shadow: 0 0 0 1px #1177bb;
-	}
-
-	.monaco-editor-container {
-		flex: 1;
-		min-height: 0;
-	}
-
-	/* 執行結果區塊 */
-	.output-panel {
-		width: 300px;
-		background: #1e1e1e;
-		border-left: 1px solid #3e3e42;
-		display: flex;
-		flex-direction: column;
-		transition: width 0.3s ease;
-	}
-
-	.output-panel.collapsed {
-		width: 40px;
-	}
-
-	.output-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 8px 12px;
-		background: #2d2d30;
-		border-bottom: 1px solid #3e3e42;
-		cursor: pointer;
-		user-select: none;
-	}
-
-	.output-header h3 {
-		margin: 0;
-		font-size: 12px;
-		font-weight: 600;
-		text-transform: uppercase;
-		white-space: nowrap;
-	}
-
-	.collapse-icon {
-		font-size: 12px;
-	}
-
-	.output-content {
-		flex: 1;
-		overflow: auto;
-		padding: 12px;
-	}
-
-	.output-text {
-		margin: 0;
-		white-space: pre-wrap;
-		font-family: "Consolas", "Monaco", "Courier New", monospace;
-		font-size: 13px;
-		line-height: 1.4;
-	}
-
-	.output-placeholder {
-		color: #999;
-		font-style: italic;
-		font-size: 13px;
-	}
-
-	/* 載入畫面 */
-	.loading-overlay {
-		position: fixed;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-		background: #1e1e1e;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		z-index: 9999;
-	}
-
-	.loading-content {
-		text-align: center;
-		color: #d4d4d4;
-	}
-
-	.loading-content h2 {
-		margin: 20px 0 10px 0;
-		font-size: 24px;
-		font-weight: 600;
-	}
-
-	.loading-content p {
-		margin: 0;
-		font-size: 14px;
-		color: #999;
-	}
-
-	.loading-spinner {
-		width: 40px;
-		height: 40px;
-		border: 3px solid #333;
-		border-top: 3px solid #0e639c;
-		border-radius: 50%;
-		animation: spin 1s linear infinite;
-		margin: 0 auto;
-	}
-
-	@keyframes spin {
-		0% {
-			transform: rotate(0deg);
-		}
-		100% {
-			transform: rotate(360deg);
-		}
-	}
-
 	/* 響應式設計 */
 	@media (max-width: 768px) {
 		.ide-body {
 			flex-direction: column;
-		}
-
-		.file-explorer {
-			width: 100%;
-			height: 150px;
-		}
-
-		.output-panel {
-			width: 100%;
-			height: 200px;
-		}
-
-		.output-panel.collapsed {
-			height: 40px;
-			width: 100%;
 		}
 	}
 </style>
