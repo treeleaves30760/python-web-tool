@@ -3,7 +3,7 @@
 		<!-- 載入畫面 -->
 		<div v-if="isLoading" class="loading-overlay">
 			<div class="loading-content">
-				<div class="loading-spinner"></div>
+				<div class="loading-spinner" />
 				<h2>Python Web IDE</h2>
 				<p>{{ loadingMessage }}</p>
 			</div>
@@ -13,9 +13,9 @@
 			<h1 class="ide-title">Python Web IDE</h1>
 			<div class="ide-actions">
 				<button
-					@click="runCode"
 					class="run-button"
 					:disabled="isRunning || isLoading"
+					@click="runCode"
 				>
 					{{ isRunning ? "執行中..." : "執行程式碼" }}
 				</button>
@@ -38,19 +38,19 @@
 					>
 						<span class="file-icon">📄</span>
 						<span class="file-name">{{ file.name }}</span>
-						<button @click.stop="deleteFile(index)" class="delete-btn">
+						<button class="delete-btn" @click.stop="deleteFile(index)">
 							×
 						</button>
 					</div>
 				</div>
 				<div class="explorer-actions">
-					<button @click="addNewFile" class="add-file-btn">+ 新增檔案</button>
+					<button class="add-file-btn" @click="addNewFile">+ 新增檔案</button>
 				</div>
 			</div>
 
 			<!-- 程式碼編輯區塊 -->
 			<div class="code-editor">
-				<div class="editor-tabs" v-if="files.length > 0">
+				<div v-if="files.length > 0" class="editor-tabs">
 					<div
 						v-for="(file, index) in files"
 						:key="index"
@@ -59,10 +59,10 @@
 						@click="selectFile(index)"
 					>
 						{{ file.name }}
-						<button @click.stop="deleteFile(index)" class="tab-close">×</button>
+						<button class="tab-close" @click.stop="deleteFile(index)">×</button>
 					</div>
 				</div>
-				<div id="monaco-editor" class="monaco-editor-container"></div>
+				<div id="monaco-editor" class="monaco-editor-container" />
 			</div>
 
 			<!-- 執行結果區塊 -->
@@ -71,7 +71,7 @@
 					<h3>執行結果</h3>
 					<span class="collapse-icon">{{ isOutputCollapsed ? "▲" : "▼" }}</span>
 				</div>
-				<div class="output-content" v-show="!isOutputCollapsed">
+				<div v-show="!isOutputCollapsed" class="output-content">
 					<pre v-if="output" class="output-text">{{ output }}</pre>
 					<div v-else class="output-placeholder">
 						點擊「執行程式碼」來查看結果
