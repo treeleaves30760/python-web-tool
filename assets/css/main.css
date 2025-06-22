@@ -1,0 +1,51 @@
+/* 全局樣式重置 */
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #1e1e1e;
+  color: #d4d4d4;
+  overflow: hidden;
+}
+
+#__nuxt {
+  height: 100vh;
+}
+
+/* 滾動條樣式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #464647;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #5a5a5a;
+}
+
+/* 選擇文字樣式 */
+::selection {
+  background: #264f78;
+}
+
+/* 移除按鈕的默認樣式 */
+button {
+  outline: none;
+}
+
+button:focus {
+  outline: 1px solid #007acc;
+} 
