@@ -10,6 +10,7 @@ export default defineNuxtConfig({
 		"@nuxt/image",
 		"@nuxt/fonts",
 		"@nuxt/eslint",
+		"@vueuse/nuxt",
 	],
 
 	// 支持靜態部署

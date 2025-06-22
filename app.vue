@@ -37,10 +37,52 @@
 						@click="selectFile(index)"
 					>
 						<span class="file-icon">📄</span>
-						<span class="file-name">{{ file.name }}</span>
-						<button class="delete-btn" @click.stop="deleteFile(index)">
-							×
-						</button>
+						<input
+							v-if="editingFileIndex === index"
+							v-model="editingFileName"
+							class="file-name-input"
+							@blur="finishRename(index)"
+							@keydown.enter="finishRename(index)"
+							@keydown.esc="cancelRename"
+							@click.stop
+						/>
+						<span v-else class="file-name" @dblclick="renameFile(index)">{{
+							file.name
+						}}</span>
+						<div class="file-actions">
+							<button
+								class="edit-btn"
+								@click.stop="startRename(index)"
+								title="重新命名"
+							>
+								<svg
+									width="14"
+									height="14"
+									viewBox="0 0 24 24"
+									fill="currentColor"
+								>
+									<path
+										d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+									/>
+								</svg>
+							</button>
+							<button
+								class="delete-btn"
+								@click.stop="deleteFile(index)"
+								title="刪除檔案"
+							>
+								<svg
+									width="14"
+									height="14"
+									viewBox="0 0 24 24"
+									fill="currentColor"
+								>
+									<path
+										d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
+									/>
+								</svg>
+							</button>
+						</div>
 					</div>
 				</div>
 				<div class="explorer-actions">
@@ -58,8 +100,52 @@
 						:class="{ active: currentFileIndex === index }"
 						@click="selectFile(index)"
 					>
-						{{ file.name }}
-						<button class="tab-close" @click.stop="deleteFile(index)">×</button>
+						<input
+							v-if="editingFileIndex === index"
+							v-model="editingFileName"
+							class="tab-name-input"
+							@blur="finishRename(index)"
+							@keydown.enter="finishRename(index)"
+							@keydown.esc="cancelRename"
+							@click.stop
+						/>
+						<span v-else class="tab-name" @dblclick="renameFile(index)">{{
+							file.name
+						}}</span>
+						<div class="tab-actions">
+							<button
+								class="tab-edit-btn"
+								@click.stop="startRename(index)"
+								title="重新命名"
+							>
+								<svg
+									width="12"
+									height="12"
+									viewBox="0 0 24 24"
+									fill="currentColor"
+								>
+									<path
+										d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+									/>
+								</svg>
+							</button>
+							<button
+								class="tab-close"
+								@click.stop="deleteFile(index)"
+								title="關閉檔案"
+							>
+								<svg
+									width="12"
+									height="12"
+									viewBox="0 0 24 24"
+									fill="currentColor"
+								>
+									<path
+										d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
+									/>
+								</svg>
+							</button>
+						</div>
 					</div>
 				</div>
 				<div id="monaco-editor" class="monaco-editor-container" />
@@ -84,9 +170,10 @@
 
 <script setup>
 	import { ref, onMounted, nextTick } from "vue";
+	import { useLocalStorage } from "@vueuse/core";
 
-	// 響應式數據
-	const files = ref([
+	// 響應式數據 - 使用 localStorage 持久化
+	const files = useLocalStorage("python-ide-files", [
 		{
 			name: "main.py",
 			content: `# 歡迎使用 Python Web IDE
@@ -104,12 +191,14 @@ for i in range(3):
 		},
 	]);
 
-	const currentFileIndex = ref(0);
+	const currentFileIndex = useLocalStorage("python-ide-current-file", 0);
 	const output = ref("");
 	const isRunning = ref(false);
 	const isOutputCollapsed = ref(false);
 	const isLoading = ref(true);
 	const loadingMessage = ref("正在初始化編輯器...");
+	const editingFileIndex = ref(-1);
+	const editingFileName = ref("");
 
 	let editor = null;
 	let pyodide = null;
@@ -117,6 +206,7 @@ for i in range(3):
 	// 檔案操作
 	const selectFile = (index) => {
 		if (editor && currentFileIndex.value !== -1) {
+			// 自動保存當前檔案內容到 localStorage
 			files.value[currentFileIndex.value].content = editor.getValue();
 		}
 		currentFileIndex.value = index;
@@ -154,6 +244,41 @@ for i in range(3):
 				editor.setValue(files.value[currentFileIndex.value].content);
 			}
 		}
+	};
+
+	const renameFile = (index) => {
+		const newName = prompt("請輸入新的檔案名稱:", files.value[index].name);
+		if (newName) {
+			files.value[index].name = newName;
+		}
+	};
+
+	const startRename = (index) => {
+		editingFileIndex.value = index;
+		editingFileName.value = files.value[index].name;
+		nextTick(() => {
+			const input = document.querySelector(".file-name-input, .tab-name-input");
+			if (input) {
+				input.focus();
+				input.select();
+			}
+		});
+	};
+
+	const finishRename = (index) => {
+		if (
+			editingFileName.value.trim() &&
+			editingFileName.value !== files.value[index].name
+		) {
+			files.value[index].name = editingFileName.value.trim();
+		}
+		editingFileIndex.value = -1;
+		editingFileName.value = "";
+	};
+
+	const cancelRename = () => {
+		editingFileIndex.value = -1;
+		editingFileName.value = "";
 	};
 
 	// 輸出面板
@@ -233,6 +358,7 @@ sys.stdout = StringIO()
 			// 監聽編輯器內容變化
 			editor.onDidChangeModelContent(() => {
 				if (currentFileIndex.value !== -1) {
+					// 自動保存到 localStorage
 					files.value[currentFileIndex.value].content = editor.getValue();
 				}
 			});
@@ -363,6 +489,7 @@ sys.stdout = StringIO()
 		cursor: pointer;
 		transition: background 0.2s;
 		font-size: 13px;
+		position: relative;
 	}
 
 	.file-item:hover {
@@ -382,19 +509,75 @@ sys.stdout = StringIO()
 		flex: 1;
 	}
 
+	.file-name:hover {
+		background: rgba(255, 255, 255, 0.1);
+		border-radius: 3px;
+		cursor: pointer;
+	}
+
+	.file-name-input {
+		flex: 1;
+		background: #1e1e1e;
+		border: 1px solid #0e639c;
+		color: #d4d4d4;
+		padding: 2px 4px;
+		border-radius: 3px;
+		font-size: 13px;
+		font-family: inherit;
+		outline: none;
+	}
+
+	.file-name-input:focus {
+		border-color: #1177bb;
+		box-shadow: 0 0 0 1px #1177bb;
+	}
+
+	.edit-btn {
+		background: none;
+		border: none;
+		color: #999;
+		cursor: pointer;
+		padding: 4px;
+		border-radius: 3px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: all 0.2s ease;
+	}
+
+	.edit-btn:hover {
+		color: #fff;
+		background: #0e639c;
+	}
+
 	.delete-btn {
 		background: none;
 		border: none;
 		color: #999;
 		cursor: pointer;
-		padding: 2px 4px;
-		font-size: 16px;
-		line-height: 1;
+		padding: 4px;
+		border-radius: 3px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: all 0.2s ease;
 	}
 
 	.delete-btn:hover {
 		color: #fff;
 		background: #e81123;
+	}
+
+	.file-actions {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		opacity: 0;
+		transition: opacity 0.2s ease;
+	}
+
+	.file-item:hover .file-actions {
+		opacity: 1;
 	}
 
 	.explorer-actions {
@@ -441,6 +624,7 @@ sys.stdout = StringIO()
 		cursor: pointer;
 		font-size: 13px;
 		white-space: nowrap;
+		gap: 6px;
 	}
 
 	.tab.active {
@@ -451,18 +635,81 @@ sys.stdout = StringIO()
 		background: #37373d;
 	}
 
+	.tab-name {
+		flex: 1;
+		padding: 2px 4px;
+		border-radius: 3px;
+		transition: background 0.2s ease;
+	}
+
+	.tab-name:hover {
+		background: rgba(255, 255, 255, 0.1);
+		cursor: pointer;
+	}
+
+	.tab-actions {
+		display: flex;
+		align-items: center;
+		gap: 2px;
+		opacity: 0;
+		transition: opacity 0.2s ease;
+	}
+
+	.tab:hover .tab-actions {
+		opacity: 1;
+	}
+
+	.tab-edit-btn {
+		background: none;
+		border: none;
+		color: #999;
+		cursor: pointer;
+		padding: 3px;
+		border-radius: 3px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: all 0.2s ease;
+	}
+
+	.tab-edit-btn:hover {
+		color: #fff;
+		background: #0e639c;
+	}
+
 	.tab-close {
 		background: none;
 		border: none;
 		color: #999;
 		cursor: pointer;
-		margin-left: 6px;
-		padding: 0 2px;
-		font-size: 14px;
+		padding: 3px;
+		border-radius: 3px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: all 0.2s ease;
 	}
 
 	.tab-close:hover {
 		color: #fff;
+		background: #e81123;
+	}
+
+	.tab-name-input {
+		flex: 1;
+		background: #1e1e1e;
+		border: 1px solid #0e639c;
+		color: #d4d4d4;
+		padding: 2px 4px;
+		border-radius: 3px;
+		font-size: 13px;
+		font-family: inherit;
+		outline: none;
+	}
+
+	.tab-name-input:focus {
+		border-color: #1177bb;
+		box-shadow: 0 0 0 1px #1177bb;
 	}
 
 	.monaco-editor-container {
