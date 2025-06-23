@@ -1,30 +1,34 @@
 <template>
 	<div class="code-editor">
-		<div v-if="files.length > 0" class="editor-tabs">
+		<div v-if="openFiles.length > 0" class="editor-tabs">
 			<div
-				v-for="(file, index) in files"
-				:key="index"
+				v-for="file in openFiles"
+				:key="file.id"
 				class="tab"
-				:class="{ active: currentFileIndex === index }"
-				@click="$emit('selectFile', index)"
+				:class="{ active: currentFileId === file.id }"
+				@click="$emit('selectFile', file.id)"
 			>
 				<input
-					v-if="editingFileIndex === index"
-					:value="editingFileName"
-					@input="$emit('updateEditingFileName', $event.target.value)"
+					v-if="editingItemId === file.id"
+					:value="editingItemName"
+					@input="$emit('updateEditingItemName', $event.target.value)"
 					class="tab-name-input"
-					@blur="$emit('finishRename', index)"
-					@keydown.enter="$emit('finishRename', index)"
+					@blur="$emit('finishRename', file.id, editingItemName)"
+					@keydown.enter="$emit('finishRename', file.id, editingItemName)"
 					@keydown.esc="$emit('cancelRename')"
 					@click.stop
 				/>
-				<span v-else class="tab-name" @dblclick="$emit('renameFile', index)">{{
-					file.name
-				}}</span>
+				<span v-else class="tab-name" @dblclick="$emit('startRename', file.id)">
+					<span class="file-icon">{{ getFileIcon(file.name) }}</span>
+					{{ file.name }}
+					<span v-if="file.path !== file.name" class="file-path">{{
+						file.path
+					}}</span>
+				</span>
 				<div class="tab-actions">
 					<button
 						class="tab-edit-btn"
-						@click.stop="$emit('startRename', index)"
+						@click.stop="$emit('startRename', file.id)"
 						title="重新命名"
 					>
 						<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
@@ -35,12 +39,12 @@
 					</button>
 					<button
 						class="tab-close"
-						@click.stop="$emit('deleteFile', index)"
+						@click.stop="$emit('closeFile', file.id)"
 						title="關閉檔案"
 					>
 						<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
 							<path
-								d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
+								d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
 							/>
 						</svg>
 					</button>
@@ -53,19 +57,19 @@
 
 <script setup>
 	defineProps({
-		files: {
+		openFiles: {
 			type: Array,
 			required: true,
 		},
-		currentFileIndex: {
-			type: Number,
+		currentFileId: {
+			type: String,
 			required: true,
 		},
-		editingFileIndex: {
-			type: Number,
+		editingItemId: {
+			type: String,
 			required: true,
 		},
-		editingFileName: {
+		editingItemName: {
 			type: String,
 			required: true,
 		},
@@ -73,13 +77,35 @@
 
 	defineEmits([
 		"selectFile",
-		"deleteFile",
-		"renameFile",
+		"closeFile",
 		"startRename",
 		"finishRename",
 		"cancelRename",
-		"updateEditingFileName",
+		"updateEditingItemName",
 	]);
+
+	// Helper function to get file icon
+	const getFileIcon = (filename) => {
+		const ext = filename.split(".").pop()?.toLowerCase();
+		switch (ext) {
+			case "py":
+				return "🐍";
+			case "js":
+				return "📜";
+			case "html":
+				return "🌐";
+			case "css":
+				return "🎨";
+			case "json":
+				return "📋";
+			case "md":
+				return "📝";
+			case "txt":
+				return "📄";
+			default:
+				return "📄";
+		}
+	};
 </script>
 
 <style scoped>
@@ -108,6 +134,8 @@
 		white-space: nowrap;
 		gap: 6px;
 		color: #d4d4d4;
+		max-width: 200px;
+		min-width: 120px;
 	}
 
 	.tab.active {
@@ -123,6 +151,24 @@
 		padding: 2px 4px;
 		border-radius: 3px;
 		transition: background 0.2s ease;
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		overflow: hidden;
+	}
+
+	.file-icon {
+		font-size: 12px;
+		flex-shrink: 0;
+	}
+
+	.file-path {
+		font-size: 11px;
+		color: #999;
+		margin-left: 4px;
+		opacity: 0.7;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
 	.tab-name:hover {
@@ -136,6 +182,7 @@
 		gap: 2px;
 		opacity: 0;
 		transition: opacity 0.2s ease;
+		flex-shrink: 0;
 	}
 
 	.tab:hover .tab-actions {

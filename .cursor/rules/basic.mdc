@@ -4,3 +4,4 @@ globs:
 alwaysApply: true
 ---
 - This is a nuxt project
+- The python runtime use pydido

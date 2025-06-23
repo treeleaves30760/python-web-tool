@@ -4,76 +4,63 @@
 			<h3>檔案管理</h3>
 		</div>
 		<div class="file-list">
+			<!-- 調試資訊 -->
 			<div
-				v-for="(file, index) in files"
-				:key="index"
-				class="file-item"
-				:class="{ active: currentFileIndex === index }"
-				@click="$emit('selectFile', index)"
+				v-if="!fileTree || fileTree.length === 0"
+				style="color: #999; padding: 12px; font-size: 12px"
 			>
-				<span class="file-icon">📄</span>
-				<input
-					v-if="editingFileIndex === index"
-					:value="editingFileName"
-					@input="$emit('updateEditingFileName', $event.target.value)"
-					class="file-name-input"
-					@blur="$emit('finishRename', index)"
-					@keydown.enter="$emit('finishRename', index)"
-					@keydown.esc="$emit('cancelRename')"
-					@click.stop
-				/>
-				<span v-else class="file-name" @dblclick="$emit('renameFile', index)">{{
-					file.name
-				}}</span>
-				<div class="file-actions">
-					<button
-						class="edit-btn"
-						@click.stop="$emit('startRename', index)"
-						title="重新命名"
-					>
-						<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-							<path
-								d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
-							/>
-						</svg>
-					</button>
-					<button
-						class="delete-btn"
-						@click.stop="$emit('deleteFile', index)"
-						title="刪除檔案"
-					>
-						<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-							<path
-								d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
-							/>
-						</svg>
-					</button>
-				</div>
+				沒有檔案資料 (fileTree: {{ fileTree }})
 			</div>
+
+			<FileTreeNode
+				v-for="item in fileTree"
+				:key="item.id"
+				:item="item"
+				:level="0"
+				:current-file-id="currentFileId"
+				:editing-item-id="editingItemId"
+				:editing-item-name="editingItemName"
+				@select-file="(id) => $emit('selectFile', id)"
+				@select-folder="(id) => $emit('selectFolder', id)"
+				@start-rename="(id) => $emit('startRename', id)"
+				@finish-rename="(id, newName) => $emit('finishRename', id, newName)"
+				@cancel-rename="$emit('cancelRename')"
+				@update-editing-item-name="
+					(name) => $emit('updateEditingItemName', name)
+				"
+				@delete-item="(id) => $emit('deleteItem', id)"
+				@toggle-folder="(id) => $emit('toggleFolder', id)"
+			/>
 		</div>
 		<div class="explorer-actions">
 			<button class="add-file-btn" @click="$emit('addNewFile')">
-				+ 新增檔案
+				📄 新增檔案
+			</button>
+			<button class="add-folder-btn" @click="$emit('addNewFolder')">
+				📁 新增資料夾
 			</button>
 		</div>
 	</div>
 </template>
 
 <script setup>
-	defineProps({
-		files: {
+	import FileTreeNode from "./FileTreeNode.vue";
+	import { onMounted } from "vue";
+
+	const props = defineProps({
+		fileTree: {
 			type: Array,
 			required: true,
 		},
-		currentFileIndex: {
-			type: Number,
+		currentFileId: {
+			type: String,
 			required: true,
 		},
-		editingFileIndex: {
-			type: Number,
+		editingItemId: {
+			type: String,
 			required: true,
 		},
-		editingFileName: {
+		editingItemName: {
 			type: String,
 			required: true,
 		},
@@ -81,14 +68,22 @@
 
 	defineEmits([
 		"selectFile",
+		"selectFolder",
 		"addNewFile",
-		"deleteFile",
-		"renameFile",
+		"addNewFolder",
+		"deleteItem",
 		"startRename",
 		"finishRename",
 		"cancelRename",
-		"updateEditingFileName",
+		"updateEditingItemName",
+		"toggleFolder",
 	]);
+
+	// Debug: 檢查接收到的 props
+	onMounted(() => {
+		console.log("FileExplorer - fileTree prop:", props.fileTree);
+		console.log("FileExplorer - fileTree length:", props.fileTree?.length);
+	});
 </script>
 
 <style scoped>
@@ -119,129 +114,37 @@
 		overflow-y: auto;
 	}
 
-	.file-item {
-		display: flex;
-		align-items: center;
-		padding: 4px 12px;
-		cursor: pointer;
-		transition: background 0.2s;
-		font-size: 13px;
-		position: relative;
-		color: #d4d4d4;
-	}
-
-	.file-item:hover {
-		background: #2a2d2e;
-	}
-
-	.file-item.active {
-		background: #37373d;
-	}
-
-	.file-icon {
-		margin-right: 6px;
-		font-size: 12px;
-	}
-
-	.file-name {
-		flex: 1;
-	}
-
-	.file-name:hover {
-		background: rgba(255, 255, 255, 0.1);
-		border-radius: 3px;
-		cursor: pointer;
-	}
-
-	.file-name-input {
-		flex: 1;
-		background: #1e1e1e;
-		border: 1px solid #0e639c;
-		color: #d4d4d4;
-		padding: 2px 4px;
-		border-radius: 3px;
-		font-size: 13px;
-		font-family: inherit;
-		outline: none;
-	}
-
-	.file-name-input:focus {
-		border-color: #1177bb;
-		box-shadow: 0 0 0 1px #1177bb;
-	}
-
-	.edit-btn {
-		background: none;
-		border: none;
-		color: #999;
-		cursor: pointer;
-		padding: 4px;
-		border-radius: 3px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		transition: all 0.2s ease;
-	}
-
-	.edit-btn:hover {
-		color: #fff;
-		background: #0e639c;
-	}
-
-	.delete-btn {
-		background: none;
-		border: none;
-		color: #999;
-		cursor: pointer;
-		padding: 4px;
-		border-radius: 3px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		transition: all 0.2s ease;
-	}
-
-	.delete-btn:hover {
-		color: #fff;
-		background: #e81123;
-	}
-
-	.file-actions {
-		display: flex;
-		align-items: center;
-		gap: 4px;
-		opacity: 0;
-		transition: opacity 0.2s ease;
-	}
-
-	.file-item:hover .file-actions {
-		opacity: 1;
-	}
-
 	.explorer-actions {
 		padding: 8px;
 		border-top: 1px solid #3e3e42;
+		background: #2d2d30;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
 	}
 
-	.add-file-btn {
-		width: 100%;
+	.add-file-btn,
+	.add-folder-btn {
 		background: #0e639c;
-		color: white;
 		border: none;
-		padding: 6px;
+		color: #fff;
+		padding: 6px 8px;
 		border-radius: 3px;
 		cursor: pointer;
 		font-size: 12px;
+		transition: background 0.2s;
 	}
 
-	.add-file-btn:hover {
+	.add-file-btn:hover,
+	.add-folder-btn:hover {
 		background: #1177bb;
 	}
 
-	@media (max-width: 768px) {
-		.file-explorer {
-			width: 100%;
-			height: 150px;
-		}
+	.add-folder-btn {
+		background: #6f42c1;
+	}
+
+	.add-folder-btn:hover {
+		background: #8b5cf6;
 	}
 </style>
