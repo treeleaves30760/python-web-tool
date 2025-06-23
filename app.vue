@@ -28,6 +28,7 @@
 					@cancel-rename="cancelRename"
 					@update-editing-item-name="updateEditingItemName"
 					@toggle-folder="toggleFolder"
+					@move-item="moveItem"
 				/>
 			</div>
 
@@ -340,11 +341,27 @@ def remove_spaces(text):
 			id: generateUniqueId(),
 			name: fileName,
 			type: "file",
-			path: fileName,
+			path: "",
 			content: `# ${fileName}\nprint("新檔案已建立")\n`,
 		};
 
-		fileTree.value.push(newFile);
+		// 根據當前選中的項目決定創建位置
+		const targetLocation = getTargetLocationForNewItem();
+
+		if (targetLocation.isRoot) {
+			// 在根目錄創建
+			newFile.path = fileName;
+			fileTree.value.push(newFile);
+		} else {
+			// 在指定資料夾內創建
+			newFile.path = `${targetLocation.parent.path}/${fileName}`;
+			if (!targetLocation.parent.children) {
+				targetLocation.parent.children = [];
+			}
+			targetLocation.parent.children.push(newFile);
+			targetLocation.parent.expanded = true; // 自動展開父資料夾
+		}
+
 		selectFile(newFile.id);
 	};
 
@@ -356,12 +373,54 @@ def remove_spaces(text):
 			id: generateUniqueId(),
 			name: folderName,
 			type: "folder",
-			path: folderName,
+			path: "",
 			expanded: true,
 			children: [],
 		};
 
-		fileTree.value.push(newFolder);
+		// 根據當前選中的項目決定創建位置
+		const targetLocation = getTargetLocationForNewItem();
+
+		if (targetLocation.isRoot) {
+			// 在根目錄創建
+			newFolder.path = folderName;
+			fileTree.value.push(newFolder);
+		} else {
+			// 在指定資料夾內創建
+			newFolder.path = `${targetLocation.parent.path}/${folderName}`;
+			if (!targetLocation.parent.children) {
+				targetLocation.parent.children = [];
+			}
+			targetLocation.parent.children.push(newFolder);
+			targetLocation.parent.expanded = true; // 自動展開父資料夾
+		}
+	};
+
+	// 獲取新建項目的目標位置
+	const getTargetLocationForNewItem = () => {
+		if (!currentFileId.value) {
+			// 沒有選中任何項目，在根目錄創建
+			return { isRoot: true, parent: null };
+		}
+
+		const currentItem = findFileById(currentFileId.value);
+		if (!currentItem) {
+			return { isRoot: true, parent: null };
+		}
+
+		if (currentItem.type === "folder") {
+			// 選中的是資料夾，在該資料夾內創建
+			return { isRoot: false, parent: currentItem };
+		} else {
+			// 選中的是檔案，在該檔案的同層創建（找到父資料夾）
+			const parentFolder = findParentFolder(currentFileId.value);
+			if (parentFolder) {
+				return { isRoot: false, parent: parentFolder };
+			} else {
+				// 檔案在根目錄，在根目錄創建
+				return { isRoot: true, parent: null };
+			}
+		}
 	};
 
 	const deleteItem = (id) => {
@@ -452,6 +511,91 @@ def remove_spaces(text):
 		editingItemName.value = value;
 	};
 
+	const moveItem = ({ fromId, toId }) => {
+		if (fromId === toId) return;
+
+		// 尋找節點及其父節點的輔助函數
+		function findNodeAndParent(id, tree, parent = null) {
+			for (const [i, node] of tree.entries()) {
+				if (node.id === id) return { node, parent, index: i };
+				if (node.type === "folder" && node.children) {
+					const found = findNodeAndParent(id, node.children, node);
+					if (found) return found;
+				}
+			}
+			return null;
+		}
+
+		// 檢查是否為子孫節點的輔助函數
+		function isDescendant(targetId, node) {
+			if (node.id === targetId) return true;
+			if (node.type === "folder" && node.children) {
+				return node.children.some((child) => isDescendant(targetId, child));
+			}
+			return false;
+		}
+
+		// 遞迴更新路徑的輔助函數
+		function updatePaths(node, newParentPath) {
+			const newPath = newParentPath
+				? `${newParentPath}/${node.name}`
+				: node.name;
+			node.path = newPath;
+
+			if (node.type === "folder" && node.children) {
+				node.children.forEach((child) => updatePaths(child, newPath));
+			}
+		}
+
+		const tree = fileTree.value;
+		const fromInfo = findNodeAndParent(fromId, tree);
+		if (!fromInfo) return;
+
+		// 移除源節點
+		const fromArr = fromInfo.parent ? fromInfo.parent.children : tree;
+		const [moved] = fromArr.splice(fromInfo.index, 1);
+
+		// 如果 toId 為 null，移動到根目錄
+		if (toId === null) {
+			tree.push(moved);
+			// 遞迴更新路徑
+			updatePaths(moved, "");
+			return;
+		}
+
+		const toInfo = findNodeAndParent(toId, tree);
+		if (!toInfo) {
+			// 恢復原位置
+			fromArr.splice(fromInfo.index, 0, moved);
+			return;
+		}
+
+		// 禁止拖到自己或子孫節點下
+		if (isDescendant(toId, moved)) {
+			// 恢復原位置
+			fromArr.splice(fromInfo.index, 0, moved);
+			return;
+		}
+
+		// 移動到目標位置
+		if (toInfo.node.type === "folder") {
+			// 移動到資料夾內
+			if (!toInfo.node.children) toInfo.node.children = [];
+			toInfo.node.children.push(moved);
+			toInfo.node.expanded = true;
+			// 遞迴更新路徑
+			updatePaths(moved, toInfo.node.path);
+		} else {
+			// 插入到同層節點之後
+			const toArr = toInfo.parent ? toInfo.parent.children : tree;
+			const toIdx = toInfo.index;
+			toArr.splice(toIdx + 1, 0, moved);
+			// 遞迴更新路徑
+			const newParentPath = toInfo.parent ? toInfo.parent.path : "";
+			updatePaths(moved, newParentPath);
+		}
+	};
+
 	// 輸出面板
 	const toggleOutput = () => {
 		isOutputCollapsed.value = !isOutputCollapsed.value;
@@ -509,7 +653,7 @@ for module_name in modules_to_remove:
         del sys.modules[module_name]
 
 sys.stdout = StringIO()
-${debugOutput ? 'print("🔄 Python 環境已重置")' : ""}
+${debugOutput ? 'print("Python 環境已重置")' : ""}
     `);
 
 			// 使用 Pyodide 的 FS API 寫入檔案
@@ -529,7 +673,7 @@ ${debugOutput ? 'print("🔄 Python 環境已重置")' : ""}
 					pyodide.FS.writeFile(`/home/pyodide/${filePath}`, content);
 
 					if (debugLevel === "detailed" || debugLevel === "full") {
-						pyodide.runPython(`print("📁 載入檔案: ${filePath}")`);
+						pyodide.runPython(`print("載入檔案: ${filePath}")`);
 					}
 				}
 			}
@@ -542,31 +686,31 @@ ${debugOutput ? 'print("🔄 Python 環境已重置")' : ""}
 			) {
 				pyodide.runPython(`
 import os
-print("📂 檔案系統內容:")
+print("檔案系統內容:")
 for root, dirs, files in os.walk("/home/pyodide"):
     level = root.replace("/home/pyodide", "").count(os.sep)
     indent = "  " * level
-    print(f"{indent}📁 {os.path.basename(root)}/")
+    print(f"{indent} {os.path.basename(root)}/")
     sub_indent = "  " * (level + 1)
     for file in files:
-        print(f"{sub_indent}📄 {file}")
+        print(f"{sub_indent} {file}")
 				`);
 			}
 
 			if (debugLevel === "detailed" || debugLevel === "full") {
 				pyodide.runPython(`
-print("\\n🛠️ 系統路徑:", sys.path)
-print("✅ 模組已準備完成\\n")
+print("\\n 系統路徑:", sys.path)
+print(" 模組已準備完成\\n")
 				`);
 			}
 
 			if (debugLevel === "full") {
 				pyodide.runPython(`
 import platform
-print("🔧 Python 版本:", platform.python_version())
-print("🔧 平台資訊:", platform.platform())
-print("🔧 處理器:", platform.processor())
-print("\\n🚀 開始執行程式碼...\\n")
+print(" Python 版本:", platform.python_version())
+print(" 平台資訊:", platform.platform())
+print(" 處理器:", platform.processor())
+print("\\n 開始執行程式碼...\\n")
 				`);
 			}
 
@@ -578,7 +722,7 @@ print("\\n🚀 開始執行程式碼...\\n")
 					debugLevel === "detailed" ||
 					debugLevel === "full"
 				) {
-					pyodide.runPython(`print("\\n📝 執行檔案: ${currentFile.name}")`);
+					pyodide.runPython(`print("\\n 執行檔案: ${currentFile.name}")`);
 					pyodide.runPython(`print("="*50)`);
 				}
 
@@ -590,7 +734,7 @@ print("\\n🚀 開始執行程式碼...\\n")
 					debugLevel === "full"
 				) {
 					pyodide.runPython(`print("="*50)`);
-					pyodide.runPython(`print("✅ 程式執行完成")`);
+					pyodide.runPython(`print("程式執行完成")`);
 				}
 			}
 

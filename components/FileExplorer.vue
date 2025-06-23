@@ -1,9 +1,13 @@
 <template>
-	<div class="file-explorer">
+	<div class="file-explorer" @move-item="handleMoveItem">
 		<div class="explorer-header">
 			<h3>檔案管理</h3>
 			<div class="explorer-header-actions">
-				<button class="icon-btn" title="新增檔案" @click="$emit('addNewFile')">
+				<button
+					class="icon-btn"
+					:title="getNewFileTooltip()"
+					@click="$emit('addNewFile')"
+				>
 					<svg
 						class="icon"
 						width="18"
@@ -19,7 +23,7 @@
 				</button>
 				<button
 					class="icon-btn"
-					title="新增資料夾"
+					:title="getNewFolderTooltip()"
 					@click="$emit('addNewFolder')"
 				>
 					<svg
@@ -38,7 +42,7 @@
 				</button>
 			</div>
 		</div>
-		<div class="file-list">
+		<div class="file-list" :class="{ 'root-dragover': isRootDragOver }">
 			<!-- 調試資訊 -->
 			<div
 				v-if="!fileTree || fileTree.length === 0"
@@ -65,14 +69,25 @@
 				"
 				@delete-item="(id) => $emit('deleteItem', id)"
 				@toggle-folder="(id) => $emit('toggleFolder', id)"
+				@move-item="handleMoveItem"
+				@dragover.stop
+				@drop.stop
 			/>
+
+			<!-- 拖到根目錄的空白區域 -->
+			<div
+				class="root-drop-zone"
+				@dragover.prevent="onRootDragOver"
+				@dragleave="onRootDragLeave"
+				@drop.prevent="onRootDrop"
+			></div>
 		</div>
 	</div>
 </template>
 
 <script setup>
 	import FileTreeNode from "./FileTreeNode.vue";
-	import { onMounted } from "vue";
+	import { onMounted, ref } from "vue";
 
 	const props = defineProps({
 		fileTree: {
@@ -93,7 +108,7 @@
 		},
 	});
 
-	defineEmits([
+	const emit = defineEmits([
 		"selectFile",
 		"selectFolder",
 		"addNewFile",
@@ -104,9 +119,121 @@
 		"cancelRename",
 		"updateEditingItemName",
 		"toggleFolder",
+		"moveItem",
 	]);
 
-	// Debug: 檢查接收到的 props
+	const isRootDragOver = ref(false);
+
+	function handleMoveItem({ fromId, toId }) {
+		// emit 事件給父組件處理，而不是直接修改 props
+		emit("moveItem", { fromId, toId });
+	}
+
+	function onRootDragOver(e) {
+		// 只有在拖到空白區域時才顯示根目錄拖放效果
+		if (
+			e.target.classList.contains("root-drop-zone") ||
+			e.target.classList.contains("file-list")
+		) {
+			isRootDragOver.value = true;
+		}
+	}
+
+	function onRootDragLeave(e) {
+		// 檢查是否真的離開了容器
+		if (!e.currentTarget.contains(e.relatedTarget)) {
+			isRootDragOver.value = false;
+		}
+	}
+
+	function onRootDrop(e) {
+		isRootDragOver.value = false;
+		// 只有在拖到空白區域時才移動到根目錄
+		if (
+			e.target.classList.contains("root-drop-zone") ||
+			(e.target.classList.contains("file-list") && fileTree.length === 0)
+		) {
+			const fromId = e.dataTransfer.getData("text/plain");
+			if (fromId) {
+				// 拖到根目錄，toId 設為 null
+				emit("moveItem", { fromId, toId: null });
+			}
+		}
+	}
+
+	// 計算新增按鈕的提示文字
+	function getNewFileTooltip() {
+		if (!props.currentFileId) {
+			return "新增檔案（在根目錄）";
+		}
+
+		const currentItem = findCurrentItem();
+		if (!currentItem) {
+			return "新增檔案（在根目錄）";
+		}
+
+		if (currentItem.type === "folder") {
+			return `新增檔案（在 ${currentItem.name} 資料夾內）`;
+		} else {
+			const parent = findParentOfCurrentItem();
+			if (parent) {
+				return `新增檔案（在 ${parent.name} 資料夾內）`;
+			} else {
+				return "新增檔案（在根目錄）";
+			}
+		}
+	}
+
+	function getNewFolderTooltip() {
+		if (!props.currentFileId) {
+			return "新增資料夾（在根目錄）";
+		}
+
+		const currentItem = findCurrentItem();
+		if (!currentItem) {
+			return "新增資料夾（在根目錄）";
+		}
+
+		if (currentItem.type === "folder") {
+			return `新增資料夾（在 ${currentItem.name} 資料夾內）`;
+		} else {
+			const parent = findParentOfCurrentItem();
+			if (parent) {
+				return `新增資料夾（在 ${parent.name} 資料夾內）`;
+			} else {
+				return "新增資料夾（在根目錄）";
+			}
+		}
+	}
+
+	function findCurrentItem() {
+		function findById(id, tree) {
+			for (const item of tree) {
+				if (item.id === id) return item;
+				if (item.type === "folder" && item.children) {
+					const found = findById(id, item.children);
+					if (found) return found;
+				}
+			}
+			return null;
+		}
+		return findById(props.currentFileId, props.fileTree);
+	}
+
+	function findParentOfCurrentItem() {
+		function findParent(targetId, tree, parent = null) {
+			for (const item of tree) {
+				if (item.id === targetId) return parent;
+				if (item.type === "folder" && item.children) {
+					const found = findParent(targetId, item.children, item);
+					if (found !== null) return found;
+				}
+			}
+			return null;
+		}
+		return findParent(props.currentFileId, props.fileTree);
+	}
+
 	onMounted(() => {
 		console.log("FileExplorer - fileTree prop:", props.fileTree);
 		console.log("FileExplorer - fileTree length:", props.fileTree?.length);
@@ -167,5 +294,40 @@
 	.file-list {
 		flex: 1;
 		overflow-y: auto;
+		transition: background 0.2s;
+	}
+
+	.file-list.root-dragover {
+		background: rgba(0, 122, 204, 0.1);
+	}
+
+	.root-drop-zone {
+		flex: 1;
+		min-height: 60px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: 2px dashed transparent;
+		transition: all 0.2s;
+		margin: 8px;
+		border-radius: 4px;
+		color: #666;
+		font-size: 12px;
+	}
+
+	.file-list.root-dragover .root-drop-zone {
+		border-color: #007acc;
+		background: rgba(0, 122, 204, 0.1);
+		color: #007acc;
+	}
+
+	.root-drop-zone::before {
+		content: "拖放檔案到這裡移動到根目錄";
+		opacity: 0;
+		transition: opacity 0.2s;
+	}
+
+	.file-list.root-dragover .root-drop-zone::before {
+		opacity: 1;
 	}
 </style>

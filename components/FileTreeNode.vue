@@ -5,9 +5,15 @@
 			:class="{
 				active: item.type === 'file' && currentFileId === item.id,
 				folder: item.type === 'folder',
+				dragover: isDragOver,
 			}"
 			:style="{ paddingLeft: level * 16 + 12 + 'px' }"
 			@click="handleClick"
+			draggable="true"
+			@dragstart="onDragStart"
+			@dragover.prevent="onDragOver"
+			@dragleave="onDragLeave"
+			@drop.prevent="onDrop"
 		>
 			<button
 				v-if="item.type === 'folder'"
@@ -82,12 +88,14 @@
 				@update-editing-item-name="$emit('updateEditingItemName', $event)"
 				@delete-item="$emit('deleteItem', $event)"
 				@toggle-folder="$emit('toggleFolder', $event)"
+				@move-item="$emit('moveItem', $event)"
 			/>
 		</div>
 	</div>
 </template>
 
 <script setup>
+	import { ref } from "vue";
 	const props = defineProps({
 		item: {
 			type: Object,
@@ -120,7 +128,31 @@
 		"updateEditingItemName",
 		"deleteItem",
 		"toggleFolder",
+		"moveItem",
 	]);
+
+	const isDragOver = ref(false);
+
+	function onDragStart(e) {
+		e.dataTransfer.effectAllowed = "move";
+		e.dataTransfer.setData("text/plain", props.item.id);
+	}
+
+	function onDragOver(_e) {
+		isDragOver.value = true;
+	}
+
+	function onDragLeave(_e) {
+		isDragOver.value = false;
+	}
+
+	function onDrop(e) {
+		isDragOver.value = false;
+		const fromId = e.dataTransfer.getData("text/plain");
+		if (fromId && fromId !== props.item.id) {
+			emit("moveItem", { fromId, toId: props.item.id });
+		}
+	}
 
 	const handleClick = () => {
 		if (props.item.type === "file") {
@@ -179,6 +211,11 @@
 
 	.tree-item.folder {
 		font-weight: 500;
+	}
+
+	.tree-item.dragover {
+		background: #007acc !important;
+		color: #fff;
 	}
 
 	.folder-toggle {
