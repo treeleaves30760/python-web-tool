@@ -9,41 +9,69 @@
 		/>
 
 		<div class="ide-body">
-			<FileExplorer
-				:file-tree="fileTree"
-				:current-file-id="currentFileId"
-				:editing-item-id="editingItemId"
-				:editing-item-name="editingItemName"
-				@select-file="selectFile"
-				@select-folder="selectFolder"
-				@add-new-file="addNewFile"
-				@add-new-folder="addNewFolder"
-				@delete-item="deleteItem"
-				@start-rename="startRename"
-				@finish-rename="finishRename"
-				@cancel-rename="cancelRename"
-				@update-editing-item-name="updateEditingItemName"
-				@toggle-folder="toggleFolder"
-			/>
+			<div
+				class="file-explorer-container"
+				:style="{ width: fileExplorerWidth + 'px' }"
+			>
+				<FileExplorer
+					:file-tree="fileTree"
+					:current-file-id="currentFileId"
+					:editing-item-id="editingItemId"
+					:editing-item-name="editingItemName"
+					@select-file="selectFile"
+					@select-folder="selectFolder"
+					@add-new-file="addNewFile"
+					@add-new-folder="addNewFolder"
+					@delete-item="deleteItem"
+					@start-rename="startRename"
+					@finish-rename="finishRename"
+					@cancel-rename="cancelRename"
+					@update-editing-item-name="updateEditingItemName"
+					@toggle-folder="toggleFolder"
+				/>
+			</div>
 
-			<CodeEditor
-				:open-files="openFiles"
-				:current-file-id="currentFileId"
-				:editing-item-id="editingItemId"
-				:editing-item-name="editingItemName"
-				@select-file="selectFile"
-				@close-file="closeFile"
-				@start-rename="startRename"
-				@finish-rename="finishRename"
-				@cancel-rename="cancelRename"
-				@update-editing-item-name="updateEditingItemName"
-			/>
+			<!-- 左側分隔器 -->
+			<div
+				class="resizer left-resizer"
+				@mousedown="startResize($event, 'left')"
+			></div>
 
-			<OutputPanel
-				:output="output"
-				:is-output-collapsed="isOutputCollapsed"
-				@toggle-output="toggleOutput"
-			/>
+			<div class="code-editor-container">
+				<CodeEditor
+					:open-files="openFiles"
+					:current-file-id="currentFileId"
+					:editing-item-id="editingItemId"
+					:editing-item-name="editingItemName"
+					@select-file="selectFile"
+					@close-file="closeFile"
+					@start-rename="startRename"
+					@finish-rename="finishRename"
+					@cancel-rename="cancelRename"
+					@update-editing-item-name="updateEditingItemName"
+				/>
+			</div>
+
+			<!-- 右側分隔器 -->
+			<div
+				v-show="!isOutputCollapsed"
+				class="resizer right-resizer"
+				@mousedown="startResize($event, 'right')"
+			></div>
+
+			<div
+				class="output-panel-container"
+				:style="{
+					width: isOutputCollapsed ? '40px' : outputPanelWidth + 'px',
+					minWidth: isOutputCollapsed ? '40px' : '200px',
+				}"
+			>
+				<OutputPanel
+					:output="output"
+					:is-output-collapsed="isOutputCollapsed"
+					@toggle-output="toggleOutput"
+				/>
+			</div>
 		</div>
 	</div>
 </template>
@@ -176,6 +204,18 @@ def remove_spaces(text):
 	const loadingMessage = ref("正在初始化編輯器...");
 	const editingItemId = ref("");
 	const editingItemName = ref("");
+
+	// 新增：面板寬度控制
+	const fileExplorerWidth = useLocalStorage(
+		"python-ide-file-explorer-width",
+		250
+	);
+	const outputPanelWidth = useLocalStorage(
+		"python-ide-output-panel-width",
+		300
+	);
+	const isResizing = ref(false);
+	const resizeType = ref("");
 
 	let editor = null;
 	let pyodide = null;
@@ -592,6 +632,67 @@ print("模組已準備完成")
 		}
 	};
 
+	// 新增：拖拉調整寬度功能
+	const startResize = (event, type) => {
+		isResizing.value = true;
+		resizeType.value = type;
+
+		// 阻止預設行為和事件冒泡
+		event.preventDefault();
+		event.stopPropagation();
+
+		// 添加全域事件監聽器
+		document.addEventListener("mousemove", handleResize);
+		document.addEventListener("mouseup", stopResize);
+
+		// 添加 body 的樣式來改善拖拉體驗
+		document.body.style.cursor = "col-resize";
+		document.body.style.userSelect = "none";
+	};
+
+	const handleResize = (event) => {
+		if (!isResizing.value) return;
+
+		const containerRect = document
+			.querySelector(".ide-body")
+			.getBoundingClientRect();
+
+		if (resizeType.value === "left") {
+			// 調整左側文件列表寬度
+			const newWidth = event.clientX - containerRect.left;
+			const minWidth = 150; // 最小寬度
+			const maxWidth = containerRect.width * 0.4; // 最大寬度為容器的 40%
+
+			fileExplorerWidth.value = Math.max(
+				minWidth,
+				Math.min(maxWidth, newWidth)
+			);
+		} else if (resizeType.value === "right") {
+			// 如果輸出面板已摺疊，則不允許拖拉
+			if (isOutputCollapsed.value) return;
+
+			// 調整右側輸出面板寬度
+			const newWidth = containerRect.right - event.clientX;
+			const minWidth = 200; // 最小寬度
+			const maxWidth = containerRect.width * 0.5; // 最大寬度為容器的 50%
+
+			outputPanelWidth.value = Math.max(minWidth, Math.min(maxWidth, newWidth));
+		}
+	};
+
+	const stopResize = () => {
+		isResizing.value = false;
+		resizeType.value = "";
+
+		// 移除全域事件監聽器
+		document.removeEventListener("mousemove", handleResize);
+		document.removeEventListener("mouseup", stopResize);
+
+		// 恢復 body 的樣式
+		document.body.style.cursor = "";
+		document.body.style.userSelect = "";
+	};
+
 	// 組件掛載
 	onMounted(async () => {
 		await nextTick();
@@ -630,10 +731,89 @@ print("模組已準備完成")
 		min-height: 0;
 	}
 
+	.file-explorer-container {
+		display: flex;
+		flex-shrink: 0;
+	}
+
+	.code-editor-container {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.output-panel-container {
+		display: flex;
+		flex-shrink: 0;
+	}
+
+	.resizer {
+		width: 4px;
+		background: #3e3e42;
+		cursor: col-resize;
+		user-select: none;
+		flex-shrink: 0;
+		position: relative;
+		transition: background 0.2s ease;
+		z-index: 10;
+	}
+
+	.resizer:hover {
+		background: #007acc;
+		box-shadow: 0 0 3px rgba(0, 122, 204, 0.5);
+	}
+
+	.resizer:active,
+	.resizer.resizing {
+		background: #007acc;
+		box-shadow: 0 0 5px rgba(0, 122, 204, 0.8);
+	}
+
+	.resizer::before {
+		content: "";
+		position: absolute;
+		top: 0;
+		left: -2px;
+		right: -2px;
+		bottom: 0;
+		background: transparent;
+	}
+
+	.left-resizer {
+		border-right: 1px solid #3e3e42;
+	}
+
+	.right-resizer {
+		border-left: 1px solid #3e3e42;
+	}
+
 	/* 響應式設計 */
 	@media (max-width: 768px) {
 		.ide-body {
 			flex-direction: column;
+		}
+
+		.resizer {
+			display: none; /* 在移動端隱藏拖拉條 */
+		}
+
+		.file-explorer-container,
+		.output-panel-container {
+			width: 100% !important;
+		}
+
+		.file-explorer-container {
+			height: 200px;
+			overflow-y: auto;
+		}
+
+		.output-panel-container {
+			height: 150px;
+		}
+
+		.code-editor-container {
+			min-height: 300px;
 		}
 	}
 </style>

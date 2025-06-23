@@ -1,8 +1,8 @@
 <template>
 	<div class="output-panel" :class="{ collapsed: isOutputCollapsed }">
 		<div class="output-header" @click="$emit('toggleOutput')">
-			<h3>執行結果</h3>
-			<span class="collapse-icon">{{ isOutputCollapsed ? "▲" : "▼" }}</span>
+			<h3>{{ isOutputCollapsed ? "" : "執行結果" }}</h3>
+			<span class="collapse-icon">{{ isOutputCollapsed ? "◀" : "▶" }}</span>
 		</div>
 		<div v-show="!isOutputCollapsed" class="output-content">
 			<pre v-if="output" class="output-text">{{ output }}</pre>
@@ -28,16 +28,16 @@
 
 <style scoped>
 	.output-panel {
-		width: 300px;
+		width: 100%;
 		background: #1e1e1e;
 		border-left: 1px solid #3e3e42;
 		display: flex;
 		flex-direction: column;
-		transition: width 0.3s ease;
+		transition: all 0.3s ease;
 	}
 
 	.output-panel.collapsed {
-		width: 40px;
+		min-width: 40px;
 	}
 
 	.output-header {

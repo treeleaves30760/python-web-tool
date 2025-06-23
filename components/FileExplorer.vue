@@ -88,7 +88,7 @@
 
 <style scoped>
 	.file-explorer {
-		width: 250px;
+		width: 100%;
 		background: #252526;
 		border-right: 1px solid #3e3e42;
 		display: flex;
