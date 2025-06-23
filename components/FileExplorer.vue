@@ -2,6 +2,41 @@
 	<div class="file-explorer">
 		<div class="explorer-header">
 			<h3>檔案管理</h3>
+			<div class="explorer-header-actions">
+				<button class="icon-btn" title="新增檔案" @click="$emit('addNewFile')">
+					<svg
+						class="icon"
+						width="18"
+						height="18"
+						viewBox="0 0 20 20"
+						fill="none"
+						xmlns="http://www.w3.org/2000/svg"
+					>
+						<rect x="3" y="2" width="12" height="16" rx="2" fill="#4FC3F7" />
+						<rect x="7" y="8.5" width="4" height="1" rx="0.5" fill="#fff" />
+						<rect x="9.5" y="6" width="1" height="4" rx="0.5" fill="#fff" />
+					</svg>
+				</button>
+				<button
+					class="icon-btn"
+					title="新增資料夾"
+					@click="$emit('addNewFolder')"
+				>
+					<svg
+						class="icon"
+						width="18"
+						height="18"
+						viewBox="0 0 20 20"
+						fill="none"
+						xmlns="http://www.w3.org/2000/svg"
+					>
+						<rect x="2" y="6" width="16" height="10" rx="2" fill="#FFD54F" />
+						<rect x="9" y="10.5" width="4" height="1" rx="0.5" fill="#fff" />
+						<rect x="11.5" y="8" width="1" height="4" rx="0.5" fill="#fff" />
+						<rect x="2" y="4" width="6" height="4" rx="1" fill="#FFE082" />
+					</svg>
+				</button>
+			</div>
 		</div>
 		<div class="file-list">
 			<!-- 調試資訊 -->
@@ -31,14 +66,6 @@
 				@delete-item="(id) => $emit('deleteItem', id)"
 				@toggle-folder="(id) => $emit('toggleFolder', id)"
 			/>
-		</div>
-		<div class="explorer-actions">
-			<button class="add-file-btn" @click="$emit('addNewFile')">
-				📄 新增檔案
-			</button>
-			<button class="add-folder-btn" @click="$emit('addNewFolder')">
-				📁 新增資料夾
-			</button>
 		</div>
 	</div>
 </template>
@@ -96,6 +123,9 @@
 	}
 
 	.explorer-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
 		padding: 8px 12px;
 		background: #2d2d30;
 		border-bottom: 1px solid #3e3e42;
@@ -109,42 +139,33 @@
 		color: #d4d4d4;
 	}
 
-	.file-list {
-		flex: 1;
-		overflow-y: auto;
-	}
-
-	.explorer-actions {
-		padding: 8px;
-		border-top: 1px solid #3e3e42;
-		background: #2d2d30;
+	.explorer-header-actions {
 		display: flex;
-		flex-direction: column;
 		gap: 4px;
 	}
 
-	.add-file-btn,
-	.add-folder-btn {
-		background: #0e639c;
+	.icon-btn {
+		background: transparent;
 		border: none;
-		color: #fff;
-		padding: 6px 8px;
+		padding: 2px 6px;
 		border-radius: 3px;
 		cursor: pointer;
-		font-size: 12px;
 		transition: background 0.2s;
+		display: flex;
+		align-items: center;
+		font-size: 16px;
+	}
+	.icon-btn:hover {
+		background: #37373d;
+	}
+	.icon {
+		display: block;
+		font-size: 18px;
+		pointer-events: none;
 	}
 
-	.add-file-btn:hover,
-	.add-folder-btn:hover {
-		background: #1177bb;
-	}
-
-	.add-folder-btn {
-		background: #6f42c1;
-	}
-
-	.add-folder-btn:hover {
-		background: #8b5cf6;
+	.file-list {
+		flex: 1;
+		overflow-y: auto;
 	}
 </style>

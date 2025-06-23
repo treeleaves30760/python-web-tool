@@ -470,7 +470,7 @@ def remove_spaces(text):
 	}
 
 	// 執行 Python 程式碼
-	const runCode = async () => {
+	const runCode = async (debugLevel = "print") => {
 		if (isRunning.value || !pyodide) return;
 
 		isRunning.value = true;
@@ -488,7 +488,9 @@ def remove_spaces(text):
 			// 創建虛擬檔案系統
 			const virtualFS = createVirtualFileSystem();
 
-			// 重定向 Python 的 stdout
+			// 重定向 Python 的 stdout 並設置debug層級
+			const debugOutput = debugLevel !== "print";
+
 			pyodide.runPython(`
 import sys
 from io import StringIO
@@ -507,7 +509,7 @@ for module_name in modules_to_remove:
         del sys.modules[module_name]
 
 sys.stdout = StringIO()
-print("Python 環境已重置")
+${debugOutput ? 'print("🔄 Python 環境已重置")' : ""}
     `);
 
 			// 使用 Pyodide 的 FS API 寫入檔案
@@ -525,41 +527,130 @@ print("Python 環境已重置")
 
 					// 寫入檔案到虛擬檔案系統
 					pyodide.FS.writeFile(`/home/pyodide/${filePath}`, content);
+
+					if (debugLevel === "detailed" || debugLevel === "full") {
+						pyodide.runPython(`print("📁 載入檔案: ${filePath}")`);
+					}
 				}
 			}
 
-			// 驗證檔案系統並載入模組
-			pyodide.runPython(`
+			// 根據debug層級顯示不同資訊
+			if (
+				debugLevel === "basic" ||
+				debugLevel === "detailed" ||
+				debugLevel === "full"
+			) {
+				pyodide.runPython(`
 import os
-print("檔案系統內容:")
+print("📂 檔案系統內容:")
 for root, dirs, files in os.walk("/home/pyodide"):
     level = root.replace("/home/pyodide", "").count(os.sep)
-    indent = " " * 2 * level
-    print(f"{indent}{os.path.basename(root)}/")
-    sub_indent = " " * 2 * (level + 1)
+    indent = "  " * level
+    print(f"{indent}📁 {os.path.basename(root)}/")
+    sub_indent = "  " * (level + 1)
     for file in files:
-        print(f"{sub_indent}{file}")
+        print(f"{sub_indent}📄 {file}")
+				`);
+			}
 
-print("\\n系統路徑:", sys.path)
-print("模組已準備完成")
-    `);
+			if (debugLevel === "detailed" || debugLevel === "full") {
+				pyodide.runPython(`
+print("\\n🛠️ 系統路徑:", sys.path)
+print("✅ 模組已準備完成\\n")
+				`);
+			}
+
+			if (debugLevel === "full") {
+				pyodide.runPython(`
+import platform
+print("🔧 Python 版本:", platform.python_version())
+print("🔧 平台資訊:", platform.platform())
+print("🔧 處理器:", platform.processor())
+print("\\n🚀 開始執行程式碼...\\n")
+				`);
+			}
 
 			// 執行主檔案
 			const currentFile = findFileById(currentFileId.value);
 			if (currentFile) {
+				if (
+					debugLevel === "basic" ||
+					debugLevel === "detailed" ||
+					debugLevel === "full"
+				) {
+					pyodide.runPython(`print("\\n📝 執行檔案: ${currentFile.name}")`);
+					pyodide.runPython(`print("="*50)`);
+				}
+
 				pyodide.runPython(currentFile.content);
+
+				if (
+					debugLevel === "basic" ||
+					debugLevel === "detailed" ||
+					debugLevel === "full"
+				) {
+					pyodide.runPython(`print("="*50)`);
+					pyodide.runPython(`print("✅ 程式執行完成")`);
+				}
 			}
 
 			// 獲取輸出
 			const stdout = pyodide.runPython("sys.stdout.getvalue()");
-			output.value = stdout || "程式執行完成，無輸出";
+
+			// 根據debug層級處理輸出
+			if (debugLevel === "print") {
+				// 僅顯示程式的print輸出，過濾掉debug訊息
+				const lines = stdout.split("\n");
+				const printLines = lines.filter(
+					(line) =>
+						!line.includes("🔄") &&
+						!line.includes("📁") &&
+						!line.includes("📂") &&
+						!line.includes("🛠️") &&
+						!line.includes("✅") &&
+						!line.includes("🔧") &&
+						!line.includes("🚀") &&
+						!line.includes("📝") &&
+						!line.includes("====")
+				);
+				output.value = printLines.join("\n").trim() || "程式執行完成，無輸出";
+			} else {
+				output.value = stdout || "程式執行完成，無輸出";
+			}
 
 			// 確保輸出面板展開
 			if (isOutputCollapsed.value) {
 				isOutputCollapsed.value = false;
 			}
 		} catch (error) {
-			output.value = `錯誤: ${error.message}`;
+			// 根據debug層級顯示不同詳細程度的錯誤訊息
+			let errorMessage = "";
+
+			if (debugLevel === "print") {
+				errorMessage = `❌ 執行錯誤: ${error.message}`;
+			} else if (debugLevel === "basic") {
+				errorMessage = `❌ 執行錯誤: ${error.message}\n\n🔍 建議檢查程式碼語法和邏輯`;
+			} else if (debugLevel === "detailed") {
+				errorMessage = `❌ 執行錯誤詳情:\n${error.message}\n\n📋 錯誤類型: ${error.name || "Unknown"}\n🔍 建議檢查程式碼語法、變數名稱和模組匯入`;
+			} else if (debugLevel === "full") {
+				errorMessage = `❌ 完整錯誤報告:
+╔═══ 錯誤訊息 ═══╗
+${error.message}
+
+╔═══ 錯誤詳情 ═══╗
+• 錯誤類型: ${error.name || "Unknown"}
+• 檔案: ${currentFileId.value}
+• 時間: ${new Date().toLocaleString()}
+
+╔═══ 除錯建議 ═══╗
+• 檢查程式碼語法
+• 確認變數名稱拼寫
+• 檢查模組匯入路徑
+• 查看Python錯誤堆疊
+`;
+			}
+
+			output.value = errorMessage;
 		} finally {
 			isRunning.value = false;
 		}

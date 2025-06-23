@@ -11,15 +11,14 @@
 				<input
 					v-if="editingItemId === file.id"
 					:value="editingItemName"
-					@input="$emit('updateEditingItemName', $event.target.value)"
 					class="tab-name-input"
+					@input="$emit('updateEditingItemName', $event.target.value)"
 					@blur="$emit('finishRename', file.id, editingItemName)"
 					@keydown.enter="$emit('finishRename', file.id, editingItemName)"
 					@keydown.esc="$emit('cancelRename')"
 					@click.stop
 				/>
 				<span v-else class="tab-name" @dblclick="$emit('startRename', file.id)">
-					<span class="file-icon">{{ getFileIcon(file.name) }}</span>
 					{{ file.name }}
 					<span v-if="file.path !== file.name" class="file-path">{{
 						file.path
@@ -28,8 +27,8 @@
 				<div class="tab-actions">
 					<button
 						class="tab-edit-btn"
-						@click.stop="$emit('startRename', file.id)"
 						title="重新命名"
+						@click.stop="$emit('startRename', file.id)"
 					>
 						<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
 							<path
@@ -39,8 +38,8 @@
 					</button>
 					<button
 						class="tab-close"
-						@click.stop="$emit('closeFile', file.id)"
 						title="關閉檔案"
+						@click.stop="$emit('closeFile', file.id)"
 					>
 						<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
 							<path
@@ -83,29 +82,6 @@
 		"cancelRename",
 		"updateEditingItemName",
 	]);
-
-	// Helper function to get file icon
-	const getFileIcon = (filename) => {
-		const ext = filename.split(".").pop()?.toLowerCase();
-		switch (ext) {
-			case "py":
-				return "🐍";
-			case "js":
-				return "📜";
-			case "html":
-				return "🌐";
-			case "css":
-				return "🎨";
-			case "json":
-				return "📋";
-			case "md":
-				return "📝";
-			case "txt":
-				return "📄";
-			default:
-				return "📄";
-		}
-	};
 </script>
 
 <style scoped>
