@@ -80,6 +80,7 @@
 <script setup>
 	import { ref, onMounted, nextTick } from "vue";
 	import { useLocalStorage } from "@vueuse/core";
+	import Swal from "sweetalert2";
 
 	// 清理舊版本的 localStorage 數據
 	if (typeof window !== "undefined") {
@@ -333,16 +334,34 @@ def remove_spaces(text):
 		}
 	};
 
-	const addNewFile = () => {
-		const fileName = prompt("請輸入檔案名稱:", "new_file.py");
-		if (!fileName) return;
+	const addNewFile = async () => {
+		const { value: fileName, isConfirmed } = await Swal.fire({
+			title: "新增檔案",
+			text: "請輸入檔案名稱:",
+			input: "text",
+			inputValue: "new_file.py",
+			showCancelButton: true,
+			confirmButtonText: "建立",
+			cancelButtonText: "取消",
+			confirmButtonColor: "#4FC3F7",
+			inputValidator: (value) => {
+				if (!value || !value.trim()) {
+					return "檔案名稱不能為空";
+				}
+				if (!/^[^<>:"/\\|?*]+$/.test(value)) {
+					return "檔案名稱包含無效字符";
+				}
+			},
+		});
+
+		if (!isConfirmed || !fileName) return;
 
 		const newFile = {
 			id: generateUniqueId(),
-			name: fileName,
+			name: fileName.trim(),
 			type: "file",
 			path: "",
-			content: `# ${fileName}\nprint("新檔案已建立")\n`,
+			content: `# ${fileName.trim()}\nprint("新檔案已建立")\n`,
 		};
 
 		// 根據當前選中的項目決定創建位置
@@ -350,11 +369,11 @@ def remove_spaces(text):
 
 		if (targetLocation.isRoot) {
 			// 在根目錄創建
-			newFile.path = fileName;
+			newFile.path = fileName.trim();
 			fileTree.value.push(newFile);
 		} else {
 			// 在指定資料夾內創建
-			newFile.path = `${targetLocation.parent.path}/${fileName}`;
+			newFile.path = `${targetLocation.parent.path}/${fileName.trim()}`;
 			if (!targetLocation.parent.children) {
 				targetLocation.parent.children = [];
 			}
@@ -363,15 +382,44 @@ def remove_spaces(text):
 		}
 
 		selectFile(newFile.id);
+
+		// 顯示成功提示
+		Swal.fire({
+			title: "檔案建立成功！",
+			text: `檔案 "${fileName.trim()}" 已成功建立`,
+			icon: "success",
+			timer: 2000,
+			showConfirmButton: false,
+			toast: true,
+			position: "top-end",
+		});
 	};
 
-	const addNewFolder = () => {
-		const folderName = prompt("請輸入資料夾名稱:", "new_folder");
-		if (!folderName) return;
+	const addNewFolder = async () => {
+		const { value: folderName, isConfirmed } = await Swal.fire({
+			title: "新增資料夾",
+			text: "請輸入資料夾名稱:",
+			input: "text",
+			inputValue: "new_folder",
+			showCancelButton: true,
+			confirmButtonText: "建立",
+			cancelButtonText: "取消",
+			confirmButtonColor: "#FFD54F",
+			inputValidator: (value) => {
+				if (!value || !value.trim()) {
+					return "資料夾名稱不能為空";
+				}
+				if (!/^[^<>:"/\\|?*]+$/.test(value)) {
+					return "資料夾名稱包含無效字符";
+				}
+			},
+		});
+
+		if (!isConfirmed || !folderName) return;
 
 		const newFolder = {
 			id: generateUniqueId(),
-			name: folderName,
+			name: folderName.trim(),
 			type: "folder",
 			path: "",
 			expanded: true,
@@ -383,17 +431,28 @@ def remove_spaces(text):
 
 		if (targetLocation.isRoot) {
 			// 在根目錄創建
-			newFolder.path = folderName;
+			newFolder.path = folderName.trim();
 			fileTree.value.push(newFolder);
 		} else {
 			// 在指定資料夾內創建
-			newFolder.path = `${targetLocation.parent.path}/${folderName}`;
+			newFolder.path = `${targetLocation.parent.path}/${folderName.trim()}`;
 			if (!targetLocation.parent.children) {
 				targetLocation.parent.children = [];
 			}
 			targetLocation.parent.children.push(newFolder);
 			targetLocation.parent.expanded = true; // 自動展開父資料夾
 		}
+
+		// 顯示成功提示
+		Swal.fire({
+			title: "資料夾建立成功！",
+			text: `資料夾 "${folderName.trim()}" 已成功建立`,
+			icon: "success",
+			timer: 2000,
+			showConfirmButton: false,
+			toast: true,
+			position: "top-end",
+		});
 	};
 
 	// 獲取新建項目的目標位置
@@ -423,12 +482,24 @@ def remove_spaces(text):
 		}
 	};
 
-	const deleteItem = (id) => {
+	const deleteItem = async (id) => {
 		const item = findFileById(id);
 		if (!item) return;
 
 		const itemType = item.type === "folder" ? "資料夾" : "檔案";
-		if (!confirm(`確定要刪除這個${itemType}嗎？`)) return;
+		const result = await Swal.fire({
+			title: `刪除${itemType}`,
+			text: `確定要刪除 "${item.name}" 這個${itemType}嗎？`,
+			icon: "warning",
+			showCancelButton: true,
+			confirmButtonText: "刪除",
+			cancelButtonText: "取消",
+			confirmButtonColor: "#dc3545",
+			cancelButtonColor: "#6c757d",
+			reverseButtons: true,
+		});
+
+		if (!result.isConfirmed) return;
 
 		// 遞迴刪除函數
 		function removeFromTree(tree, targetId) {
@@ -468,6 +539,17 @@ def remove_spaces(text):
 			collectFiles(item);
 			filesToClose.forEach((fileId) => closeFile(fileId));
 		}
+
+		// 顯示成功提示
+		Swal.fire({
+			title: "刪除成功！",
+			text: `${itemType} "${item.name}" 已成功刪除`,
+			icon: "success",
+			timer: 2000,
+			showConfirmButton: false,
+			toast: true,
+			position: "top-end",
+		});
 	};
 
 	const startRename = (id) => {
